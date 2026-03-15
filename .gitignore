@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and runtime
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Local data (if any)
+data/
+
+# Build / output
+dist/
+out/
+*.tsbuildinfo
+
+# OS and editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# Optional: keep default config template tracked
+# !commonconfig/feishu.default.yaml

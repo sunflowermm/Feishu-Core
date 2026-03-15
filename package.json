@@ -1,0 +1,10 @@
+{
+  "name": "feishu-core",
+  "version": "1.0.0",
+  "private": true,
+  "description": "XRK-AGT 飞书通道 Core，依赖 @larksuiteoapi/node-sdk 连接飞书",
+  "type": "module",
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.59.0"
+  }
+}
