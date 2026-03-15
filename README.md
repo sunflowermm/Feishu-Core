@@ -28,6 +28,7 @@
 ```text
 Feishu-Core/
 ├── README.md
+├── LICENSE
 ├── .gitignore
 ├── commonconfig/
 │   ├── feishu.js              # 配置 Schema（策略、发送、多账号等）
@@ -104,7 +105,7 @@ flowchart LR
 | 能力 | 说明 |
 |------|------|
 | **commonconfig 加载** | `src/infrastructure/commonconfig/loader.js` 通过 `paths.getCoreSubDirs('commonconfig')` 得到各 `core/*/commonconfig/`，加载该目录下 `*.js`，以文件名（不含扩展名）为 key 存入；`feishu.js` → key `feishu`，通过 `global.ConfigManager.get('feishu')` 访问。 |
-| **Tasker 加载** | `src/infrastructure/tasker/loader.js` 扫描各 `core/*/tasker/*.js`，对每个模块执行 `mod.register(bot)`；`Feishu.js` 在 `register(bot)` 中向 `bot.tasker` 注册适配器。 |
+| **Tasker 加载** | `src/infrastructure/tasker/loader.js` 扫描各 `core/*/tasker/*.js` 并 import 模块；`Feishu.js` 在模块顶层向 `Bot.tasker.push` 注册，框架随后对每个 tasker 调用 `load()`。 |
 | **Events 加载** | `src/infrastructure/listener/loader.js` 通过 `paths.getCoreSubDirs('events')` 得到各 `core/*/events/`，加载其下 `*.js`，实例化监听器后通过 `bot.on(prefix + event, handler)` 订阅；`feishu.js` 订阅 `feishu.message` / `feishu.notice` 等。 |
 | **全局对象** | 使用 `Bot`、`global.ConfigManager`（即 ConfigLoader 实例）、插件基类，遵循 XRK-AGT 约定。 |
 
@@ -129,4 +130,4 @@ pnpm install
 
 ## 📄 许可证
 
-本项目基于 **MIT License** 开源；若仓库内无 LICENSE 文件，以主项目 XRK-AGT 的许可证为准。
+本 Core 采用 **MIT License** 开源，见 [LICENSE](./LICENSE)。若主项目 XRK-AGT 另有约定，以主项目为准。
