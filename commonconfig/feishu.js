@@ -163,9 +163,9 @@ export default class FeishuConfig extends ConfigBase {
       try {
         await fs.mkdir(path.dirname(targetPath), { recursive: true });
         await fs.copyFile(DEFAULT_TEMPLATE, targetPath);
-        BotUtil.makeLog(“info”, `[Feishu] 已从默认模板创建: ${targetPath}`, “FeishuConfig”);
+        BotUtil.makeLog("info", `[Feishu] 已从默认模板创建: ${targetPath}`, "FeishuConfig");
       } catch (e) {
-        BotUtil.makeLog(“warn”, `[Feishu] 创建默认配置失败: ${e?.message}`, “FeishuConfig”);
+        BotUtil.makeLog("warn", `[Feishu] 创建默认配置失败: ${e?.message}`, "FeishuConfig");
       }
     }
     return await super.read(useCache);

@@ -123,10 +123,15 @@ function createClient(account) {
   });
 }
 
+/** 对齐服务端 API GET /open-apis/bot/v3/info，成功时从 data.bot 取 open_id */
 async function probeBotOpenId(account) {
   try {
-    const res = await createClient(account).request({ method: "GET", url: "/open-apis/bot/v3/info", data: {} });
-    return (res?.code === 0 && (res.bot || res.data?.bot)) ? (res.bot?.open_id ?? res.data?.bot?.open_id) : undefined;
+    const res = await createClient(account).request({
+      method: "GET",
+      url: "/open-apis/bot/v3/info",
+    });
+    if (res?.code !== 0) return undefined;
+    return res?.data?.bot?.open_id;
   } catch {
     return undefined;
   }
