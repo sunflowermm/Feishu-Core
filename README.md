@@ -48,7 +48,7 @@ Feishu-Core/
 
 - **实际生效**：`data/server_bots/{port}/feishu.yaml`  
   - 由 `commonconfig/feishu.js` 中的 `filePath`（或动态函数）决定，与 `src/infrastructure/config/config-constants.js` 中通道配置约定一致。
-  - 通过 `global.ConfigManager.get('feishu')` 获取配置实例，可在 **Web 控制台** 编辑。
+  - 通过 `global.CommonConfigRegistry.get('feishu')` 获取配置实例，可在 **Web 控制台** 编辑。
 - **默认配置**：本 Core 内参考文件为 **`commonconfig/feishu.default.yaml`**。`feishu.js` 在 `read()` 时若 **`data/server_bots/{port}/feishu.yaml` 不存在**，会**从本目录的 feishu.default.yaml 复制到该路径**并再读，不污染底层目录。
 
 ### 2. 关键字段
@@ -177,7 +177,7 @@ flowchart LR
 
 **事件流说明：**
 
-1. **Tasker**（`tasker/Feishu.js`）：接收 Lark WebSocket 事件 → 策略过滤 → 标准化 → `Bot.em("feishu.message" | "feishu.notice", data)`
+1. **Tasker**（`tasker/Feishu.js`）：接收 Lark WebSocket 事件 → 策略过滤 → 标准化 → `AgentRuntime.em("feishu.message" | "feishu.notice", data)`
 2. **事件监听**（`events/feishu.js`）：订阅上述事件 → 去重、挂载 `e.reply` → `plugins.deal(e)`
 3. **插件**：通过 `plugins.deal` 统一处理；`event: "message"` 可收到飞书消息，`event: "feishu.message"` 可仅匹配飞书
 
@@ -203,10 +203,10 @@ flowchart LR
 
 | 能力 | 说明 |
 |------|------|
-| **commonconfig 加载** | `src/infrastructure/commonconfig/loader.js` 通过 `paths.getCoreSubDirs('commonconfig')` 得到各 `core/*/commonconfig/`，加载该目录下 `*.js`，以文件名（不含扩展名）为 key 存入；`feishu.js` → key `feishu`，通过 `global.ConfigManager.get('feishu')` 访问。 |
-| **Tasker 加载** | `src/infrastructure/tasker/loader.js` 扫描各 `core/*/tasker/*.js` 并 import 模块；`Feishu.js` 在模块顶层向 `Bot.tasker.push` 注册，框架随后对每个 tasker 调用 `load()`。 |
+| **commonconfig 加载** | `src/infrastructure/commonconfig/loader.js` 通过 `paths.getCoreSubDirs('commonconfig')` 得到各 `core/*/commonconfig/`，加载该目录下 `*.js`，以文件名（不含扩展名）为 key 存入；`feishu.js` → key `feishu`，通过 `global.CommonConfigRegistry.get('feishu')` 访问。 |
+| **Tasker 加载** | `src/infrastructure/tasker/loader.js` 扫描各 `core/*/tasker/*.js` 并 import 模块；`Feishu.js` 在模块顶层向 `AgentRuntime.tasker.push` 注册，框架随后对每个 tasker 调用 `load()`。 |
 | **Events 加载** | `src/infrastructure/listener/loader.js` 通过 `paths.getCoreSubDirs('events')` 得到各 `core/*/events/`，加载其下 `*.js`，实例化监听器后通过 `bot.on(prefix + event, handler)` 订阅；`feishu.js` 订阅 `feishu.message` / `feishu.notice` 等。 |
-| **全局对象** | 使用 `Bot`、`global.ConfigManager`（即 ConfigLoader 实例）、插件基类，遵循 XRK-AGT 约定。 |
+| **全局对象** | 使用 `AgentRuntime`、`global.CommonConfigRegistry`（即 CommonConfigRegistry 实例）、插件基类，遵循 XRK-AGT 约定。 |
 
 ---
 

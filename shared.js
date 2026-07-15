@@ -5,18 +5,18 @@
 export const FEISHU_PREFIX = "feishu_";
 export const DEFAULT_ACCOUNT_ID = "default";
 
-/** 由账号 ID 得到 Bot 侧 self_id（如 feishu_default） */
+/** 由账号 ID 得到 AgentRuntime 侧 self_id（如 feishu_default） */
 export function toSelfId(accountId) {
   return FEISHU_PREFIX + (accountId ?? DEFAULT_ACCOUNT_ID);
 }
 
 /**
- * 解析服务端口：优先 cfg.port / cfg._port，其次 process.argv 的 server <port>
- * @param {object} [cfg]
+ * 解析服务端口：优先 runtimeConfig.port / runtimeConfig._port，其次 process.argv 的 server <port>
+ * @param {object} [runtimeConfig]
  * @returns {number|null}
  */
-export function resolveServerPort(cfg) {
-  const fromCfg = cfg?.port ?? cfg?._port;
+export function resolveServerPort(runtimeConfig) {
+  const fromCfg = runtimeConfig?.port ?? runtimeConfig?._port;
   if (fromCfg != null && !Number.isNaN(Number(fromCfg))) return Number(fromCfg);
   const idx = process.argv.indexOf("server");
   if (idx >= 0 && process.argv[idx + 1]) {

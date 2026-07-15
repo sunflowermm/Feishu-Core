@@ -3,14 +3,14 @@
  *
  * - 路径：data/server_bots/{port}/feishu.yaml（随端口）
  * - 缺失时从本 Core commonconfig/feishu.default.yaml 复制到该路径，不写入项目根或底层目录
- * - 业务通过 ConfigManager.get('feishu') 后 read() 使用
+ * - 业务通过 CommonConfigRegistry.get('feishu') 后 read() 使用
  */
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs/promises";
 import fsSync from "fs";
 import ConfigBase from "../../../src/infrastructure/commonconfig/commonconfig.js";
-import BotUtil from "../../../src/utils/botutil.js";
+import RuntimeUtil from "../../../src/utils/runtime-util.js";
 import { resolveServerPort } from "../shared.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,9 +23,9 @@ export default class FeishuConfig extends ConfigBase {
       name: "feishu",
       displayName: "飞书通道配置",
       description: "飞书通道配置，策略/发送/多账号等字段完整",
-      filePath: (cfg) => {
-        const port = resolveServerPort(cfg ?? global.cfg);
-        if (!port) throw new Error("FeishuConfig: 需要端口 (global.cfg.port 或 node app server <port>)");
+      filePath: (runtimeConfig) => {
+        const port = resolveServerPort(runtimeConfig ?? global.runtimeConfig);
+        if (!port) throw new Error("FeishuConfig: 需要端口 (global.runtimeConfig.port 或 node app server <port>)");
         return path.join("data", "server_bots", String(port), "feishu.yaml");
       },
       fileType: "yaml",
@@ -163,9 +163,9 @@ export default class FeishuConfig extends ConfigBase {
       try {
         await fs.mkdir(path.dirname(targetPath), { recursive: true });
         await fs.copyFile(DEFAULT_TEMPLATE, targetPath);
-        BotUtil.makeLog("info", `[Feishu] 已从默认模板创建: ${targetPath}`, "FeishuConfig");
+        RuntimeUtil.makeLog("info", `[Feishu] 已从默认模板创建: ${targetPath}`, "FeishuConfig");
       } catch (e) {
-        BotUtil.makeLog("warn", `[Feishu] 创建默认配置失败: ${e?.message}`, "FeishuConfig");
+        RuntimeUtil.makeLog("warn", `[Feishu] 创建默认配置失败: ${e?.message}`, "FeishuConfig");
       }
     }
     return await super.read(useCache);

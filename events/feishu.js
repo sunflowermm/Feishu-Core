@@ -14,16 +14,16 @@ export default class FeishuEvent extends EventListenerBase {
 
   async init() {
     if (this._listenersInitialized) return;
-    const bot = this.bot || Bot;
+    const bot = this.bot || AgentRuntime;
     bot.on("feishu.message", (e) => this.handle(e, true));
     bot.on("feishu.notice", (e) => this.handle(e, false));
     this._listenersInitialized = true;
   }
 
   normalizeBase(e) {
-    e.bot = e.bot || (e.self_id ? Bot[e.self_id] : null);
+    e.bot = e.bot || (e.self_id ? AgentRuntime[e.self_id] : null);
     if (!e.bot) {
-      Bot.makeLog("warn", `[Feishu] Bot 不存在: ${e.self_id}`, e.self_id);
+      AgentRuntime.makeLog("warn", `[Feishu] AgentRuntime 不存在: ${e.self_id}`, e.self_id);
       return false;
     }
     this.ensureEventId(e);
@@ -40,7 +40,7 @@ export default class FeishuEvent extends EventListenerBase {
       try {
         if (e.message_type === "group" && e.group_id) return await tasker.sendGroupMsg(e, msg);
         if (e.message_type === "private" && e.user_id) return await tasker.sendFriendMsg(e, msg);
-        Bot.makeLog("warn", "[Feishu] 无法发送", e.self_id);
+        AgentRuntime.makeLog("warn", "[Feishu] 无法发送", e.self_id);
         return false;
       } catch (err) {
         errorHandler.handle(err, { context: "FeishuEvent.reply", selfId: e.self_id, code: ErrorCodes.SYSTEM_ERROR }, true);
@@ -56,7 +56,7 @@ export default class FeishuEvent extends EventListenerBase {
       await this.plugins.deal(e);
     } catch (err) {
       errorHandler.handle(err, { context: "FeishuEvent.handle", selfId: e?.self_id, code: ErrorCodes.SYSTEM_ERROR }, true);
-      Bot.makeLog("error", `[Feishu] 处理失败: ${err?.message}`, e?.self_id, err);
+      AgentRuntime.makeLog("error", `[Feishu] 处理失败: ${err?.message}`, e?.self_id, err);
     }
   }
 }

@@ -1,11 +1,11 @@
 /**
- * Feishu Tasker：收 Lark 事件 → 策略过滤 → 标准化 → Bot.em("feishu.message"|"feishu.notice")。
+ * Feishu Tasker：收 Lark 事件 → 策略过滤 → 标准化 → AgentRuntime.em("feishu.message"|"feishu.notice")。
  * 回复由 events/feishu.js 统一挂载，插件通过 plugins.deal 消费。
  * 依赖：仅 @larksuiteoapi/node-sdk。配置与行为见 commonconfig/feishu.js。
  */
 import * as Lark from "@larksuiteoapi/node-sdk";
 import fs from "fs/promises";
-import { TaskerBase } from "../../../src/infrastructure/bot/tasker.js";
+import { TaskerBase } from "../../../src/infrastructure/tasker/tasker-base.js";
 import { EventNormalizer } from "../../../src/utils/event-normalizer.js";
 import { FEISHU_PREFIX, DEFAULT_ACCOUNT_ID, escapeForRegex, resolveAccountIdFromData, toSelfId } from "../shared.js";
 const MEDIA_TYPES = ["image", "file", "audio", "video", "sticker"];
@@ -18,22 +18,22 @@ function resolveDomain(domain) {
   return (domain === "feishu" || !domain) ? Lark.Domain.Feishu : String(domain).replace(/\/+$/, "");
 }
 
-function listAccountIds(cfg) {
-  const accounts = cfg?.accounts;
+function listAccountIds(runtimeConfig) {
+  const accounts = runtimeConfig?.accounts;
   if (!accounts || typeof accounts !== "object") return [DEFAULT_ACCOUNT_ID];
   return Object.keys(accounts).filter(Boolean).sort((a, b) => a.localeCompare(b));
 }
 
-function mergeAccountConfig(cfg, accountId) {
-  const { accounts, ...base } = cfg ?? {};
+function mergeAccountConfig(runtimeConfig, accountId) {
+  const { accounts, ...base } = runtimeConfig ?? {};
   return { ...base, ...(accounts?.[accountId] ?? {}) };
 }
 
-function resolveAccount(cfg, accountId) {
-  const merged = mergeAccountConfig(cfg, accountId);
+function resolveAccount(runtimeConfig, accountId) {
+  const merged = mergeAccountConfig(runtimeConfig, accountId);
   const appId = merged?.appId?.trim();
   const appSecret = merged?.appSecret?.trim();
-  const enabled = (cfg?.enabled !== false) && (merged.enabled !== false);
+  const enabled = (runtimeConfig?.enabled !== false) && (merged.enabled !== false);
   return {
     accountId: accountId ?? DEFAULT_ACCOUNT_ID,
     enabled,
@@ -48,11 +48,11 @@ function resolveAccount(cfg, accountId) {
   };
 }
 
-function listEnabledAccounts(cfg) {
-  const accounts = listAccountIds(cfg)
-    .map((id) => resolveAccount(cfg, id))
+function listEnabledAccounts(runtimeConfig) {
+  const accounts = listAccountIds(runtimeConfig)
+    .map((id) => resolveAccount(runtimeConfig, id))
     .filter((a) => a.enabled && a.configured);
-  const defaultId = (cfg?.defaultAccount ?? "").trim();
+  const defaultId = (runtimeConfig?.defaultAccount ?? "").trim();
   if (!defaultId) return accounts;
   const idx = accounts.findIndex((a) => a.accountId === defaultId);
   if (idx <= 0) return accounts;
@@ -80,16 +80,16 @@ function isAllowedByAllowlist(allowFrom, senderOpenId) {
 }
 
 /** 群级配置：groups[chatId] 或 groups['*'] */
-function resolveGroupConfig(cfg, chatId) {
-  const groups = cfg?.groups && typeof cfg.groups === "object" ? cfg.groups : {};
+function resolveGroupConfig(runtimeConfig, chatId) {
+  const groups = runtimeConfig?.groups && typeof runtimeConfig.groups === "object" ? runtimeConfig.groups : {};
   if (!chatId) return groups["*"];
   return groups[chatId] ?? groups[chatId.toLowerCase?.()] ?? groups["*"];
 }
 
 /** 群内是否要求 @ 机器人（默认 true），可由 groups 覆盖 */
-function resolveRequireMention(merged, cfg, chatType, chatId) {
+function resolveRequireMention(merged, runtimeConfig, chatType, chatId) {
   if (chatType !== "group") return false;
-  const groupConfig = resolveGroupConfig(merged ?? cfg, chatId);
+  const groupConfig = resolveGroupConfig(merged ?? runtimeConfig, chatId);
   return groupConfig?.requireMention ?? merged?.requireMention ?? true;
 }
 
@@ -251,32 +251,32 @@ class FeishuTasker {
 
   /** 使用 ConfigBase 的缓存，避免每条消息都读盘；需热更新时由配置层 reload 或重启进程 */
   async _getFeishuCfg() {
-    const config = global.ConfigManager?.get?.("feishu");
+    const config = global.CommonConfigRegistry?.get?.("feishu");
     if (!config?.read) return null;
     try {
       return await config.read(true);
     } catch (e) {
-      Bot.makeLog("warn", `[Feishu] 读取配置失败: ${e?.message}`, "Feishu");
+      AgentRuntime.makeLog("warn", `[Feishu] 读取配置失败: ${e?.message}`, "Feishu");
       return null;
     }
   }
 
   async load() {
-    const cfg = await this._getFeishuCfg();
-    if (!cfg?.enabled) {
-      Bot.makeLog("info", "[Feishu] 未启用，跳过", "Feishu");
+    const runtimeConfig = await this._getFeishuCfg();
+    if (!runtimeConfig?.enabled) {
+      AgentRuntime.makeLog("info", "[Feishu] 未启用，跳过", "Feishu");
       return;
     }
-    const accounts = listEnabledAccounts(cfg);
+    const accounts = listEnabledAccounts(runtimeConfig);
     if (!accounts.length) {
-      Bot.makeLog("warn", "[Feishu] 无可用账号", "Feishu");
+      AgentRuntime.makeLog("warn", "[Feishu] 无可用账号", "Feishu");
       return;
     }
     for (const account of accounts) {
       try {
         await this._startAccount(account);
       } catch (err) {
-        Bot.makeLog("error", `[Feishu] 启动 ${account.accountId} 失败: ${err?.message}`, "Feishu", err);
+        AgentRuntime.makeLog("error", `[Feishu] 启动 ${account.accountId} 失败: ${err?.message}`, "Feishu", err);
       }
     }
   }
@@ -288,7 +288,7 @@ class FeishuTasker {
         account.appSecret = (secret || "").trim();
         account.configured = !!(account.appId && account.appSecret);
       } catch (e) {
-        Bot.makeLog("warn", `[Feishu] 读取 appSecret 文件失败: ${account.config.appSecretFile}`, "Feishu", e);
+        AgentRuntime.makeLog("warn", `[Feishu] 读取 appSecret 文件失败: ${account.config.appSecretFile}`, "Feishu", e);
         return;
       }
     }
@@ -296,19 +296,19 @@ class FeishuTasker {
     const { accountId } = account;
     const botOpenId = await probeBotOpenId(account);
     this._botOpenIds.set(accountId, botOpenId ?? "");
-    Bot.makeLog("info", `[Feishu] ${accountId} bot open_id: ${botOpenId ?? "unknown"}`, "Feishu");
+    AgentRuntime.makeLog("info", `[Feishu] ${accountId} bot open_id: ${botOpenId ?? "unknown"}`, "Feishu");
 
     const selfId = toSelfId(accountId);
-    if (!Bot[selfId]) {
+    if (!AgentRuntime[selfId]) {
       TaskerBase.createBotInstance(
         { id: selfId, name: account.name || `Feishu-${accountId}`, type: "feishu", info: { bot_open_id: botOpenId }, tasker: this },
-        Bot
+        AgentRuntime
       );
-      if (!Bot.uin.includes(selfId)) Bot.uin.push(selfId);
+      if (!AgentRuntime.uin.includes(selfId)) AgentRuntime.uin.push(selfId);
     }
 
     if ((account.config?.connectionMode ?? "websocket") === "webhook") {
-      Bot.makeLog("warn", "[Feishu] webhook 需自行挂载，当前仅 websocket", "Feishu");
+      AgentRuntime.makeLog("warn", "[Feishu] webhook 需自行挂载，当前仅 websocket", "Feishu");
       return;
     }
 
@@ -332,7 +332,7 @@ class FeishuTasker {
     });
     this._wsClients.set(accountId, wsClient);
     wsClient.start({ eventDispatcher });
-    Bot.makeLog("mark", `[Feishu] ${accountId} WebSocket 已启动`, "Feishu");
+    AgentRuntime.makeLog("mark", `[Feishu] ${accountId} WebSocket 已启动`, "Feishu");
   }
 
   async _onMessage(accountId, rawEvent) {
@@ -345,13 +345,13 @@ class FeishuTasker {
     const senderOpenId = sender.sender_id?.open_id || sender.sender_id?.user_id || "";
     const chatId = message.chat_id || "";
 
-    const cfg = await this._getFeishuCfg();
-    const merged = cfg ? mergeAccountConfig(cfg, accountId) : {};
+    const runtimeConfig = await this._getFeishuCfg();
+    const merged = runtimeConfig ? mergeAccountConfig(runtimeConfig, accountId) : {};
     if (isGroup) {
       const groupPolicy = merged.groupPolicy === "allowall" ? "open" : (merged.groupPolicy ?? "open");
       if (groupPolicy === "disabled") return;
       if (groupPolicy === "allowlist" && !isAllowedByAllowlist(merged.groupAllowFrom, senderOpenId)) return;
-      const requireMention = resolveRequireMention(merged, cfg, chatType, chatId);
+      const requireMention = resolveRequireMention(merged, runtimeConfig, chatType, chatId);
       if (requireMention && !checkBotMentioned(message.mentions ?? [], this._botOpenIds.get(accountId))) return;
     } else {
       if (merged.dmPolicy === "disabled") return;
@@ -396,9 +396,9 @@ class FeishuTasker {
       ...(mentionTargets.length > 0 && { mentionTargets, mentionMessageBody }),
     };
 
-    data.bot = Bot[selfId] || null;
+    data.bot = AgentRuntime[selfId] || null;
     if (!data.bot) {
-      Bot.makeLog("warn", `[Feishu] Bot 不存在: ${selfId}`, selfId);
+      AgentRuntime.makeLog("warn", `[Feishu] AgentRuntime 不存在: ${selfId}`, selfId);
       return;
     }
     data.event_id = `feishu_${selfId}_${message.message_id}_${data.time}`;
@@ -408,8 +408,8 @@ class FeishuTasker {
     data.isPrivate = !isGroup;
     data.sender = { user_id: senderOpenId, nickname: sender.sender_id?.name || senderOpenId, card: sender.sender_id?.name || senderOpenId };
     EventNormalizer.normalize(data, { defaultPostType: "message", defaultMessageType: data.message_type, defaultSubType: isGroup ? "normal" : "friend", defaultUserId: senderOpenId });
-    Bot.makeLog("info", `[Feishu] 消息 ${selfId} <= ${isGroup ? chatId : senderOpenId}`, selfId);
-    Bot.em("feishu.message", data);
+    AgentRuntime.makeLog("info", `[Feishu] 消息 ${selfId} <= ${isGroup ? chatId : senderOpenId}`, selfId);
+    AgentRuntime.em("feishu.message", data);
   }
 
   _onNotice(accountId, subType, rawEvent) {
@@ -427,12 +427,12 @@ class FeishuTasker {
       feishu_account_id: accountId,
       feishu_event: rawEvent,
     };
-    data.bot = Bot[selfId] || null;
+    data.bot = AgentRuntime[selfId] || null;
     data.event_id = `feishu_${selfId}_notice_${subType}_${data.time}`;
     data.tasker = "feishu";
     data.isFeishu = true;
-    if (data.bot) Bot.em("feishu.notice", data);
-    Bot.makeLog("info", `[Feishu] 通知 ${subType} chat=${chatId}`, selfId);
+    if (data.bot) AgentRuntime.em("feishu.notice", data);
+    AgentRuntime.makeLog("info", `[Feishu] 通知 ${subType} chat=${chatId}`, selfId);
   }
 
   async sendFriendMsg(data, msg) {
@@ -450,9 +450,9 @@ class FeishuTasker {
   }
 
   async _send(accountId, to, text, replyToMessageId) {
-    const cfg = await this._getFeishuCfg();
-    if (!cfg) throw new Error("Feishu 配置不可用");
-    const account = resolveAccount(cfg, accountId);
+    const runtimeConfig = await this._getFeishuCfg();
+    if (!runtimeConfig) throw new Error("Feishu 配置不可用");
+    const account = resolveAccount(runtimeConfig, accountId);
     if (!account.configured) throw new Error(`Feishu 账号 "${accountId}" 未配置`);
     const receiveId = normalizeTo(to);
     if (!receiveId) throw new Error(`无效目标: ${to}`);
@@ -485,4 +485,4 @@ class FeishuTasker {
 }
 
 const _feishuTasker = new FeishuTasker();
-if (!Bot.tasker?.some((t) => t?.path === _feishuTasker.path)) Bot.tasker.push(_feishuTasker);
+if (!AgentRuntime.tasker?.some((t) => t?.path === _feishuTasker.path)) AgentRuntime.tasker.push(_feishuTasker);
