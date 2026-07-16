@@ -2,10 +2,10 @@
  * 飞书事件监听：订阅 feishu.message / feishu.notice，标准化后交给插件链（plugins.deal）。
  * 回复能力在此统一挂载 e.reply，与其它通道一致，由插件层统一消费。
  */
-import EventListenerBase from "../../../src/infrastructure/listener/base.js";
+import ListenerBase from "../../../src/infrastructure/listener/base.js";
 import { errorHandler, ErrorCodes } from "../../../src/utils/error-handler.js";
 
-export default class FeishuEvent extends EventListenerBase {
+export default class FeishuEvent extends ListenerBase {
   _listenersInitialized = false;
 
   constructor() {
