@@ -28,7 +28,7 @@ export default class FeishuEvent extends ListenerBase {
     }
     this.ensureEventId(e);
     if (!this.markProcessed(e)) return false;
-    this.markAdapter(e, { isFeishu: true });
+    this.markTasker(e, { isFeishu: true });
     return true;
   }
 
